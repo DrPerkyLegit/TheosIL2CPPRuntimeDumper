@@ -1,0 +1,8 @@
+Package: com.il2cpp.runtimedumper
+Name: RuntimeDumper
+Version: 1.0
+Architecture: iphoneos-arm
+Description: Runtime Dumper For Il2CPP Games With Encrypted Metadata
+Maintainer: DrPerky
+Author: DrPerky
+Section: Tweaks
