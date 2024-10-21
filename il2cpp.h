@@ -73,6 +73,9 @@ namespace IL2CPP
     const void* (*il2cpp_class_get_method_from_name)(void* klass, const char* name, int argsCount);
     const char* (*il2cpp_class_get_namespace)(void* klass);
     const void* (*il2cpp_class_get_parent)(void* klass);
+    bool (*il2cpp_class_is_abstract)(void* klass);
+    bool (*il2cpp_class_is_interface)(void* klass);
+    bool (*il2cpp_class_is_enum)(void* klass);
 
 
     const char* (*il2cpp_type_get_name)(void* type);
@@ -205,6 +208,9 @@ void IL2CPP::Attach(std::function<void(std::string, IL2CPP::LogLevel)> DebugFunc
     IL2CPP::il2cpp_class_get_method_from_name = reinterpret_cast<const void* (*)(void*, const char*, int)>(dlsym(handle, "il2cpp_class_get_method_from_name"));
     IL2CPP::il2cpp_class_get_namespace = reinterpret_cast<const char* (*)(void*)>(dlsym(handle, "il2cpp_class_get_namespace"));
     IL2CPP::il2cpp_class_get_parent = reinterpret_cast<const void* (*)(void*)>(dlsym(handle, "il2cpp_class_get_parent"));
+    IL2CPP::il2cpp_class_is_abstract = reinterpret_cast<bool (*)(void*)>(dlsym(handle, "il2cpp_class_is_abstract"));
+    IL2CPP::il2cpp_class_is_interface = reinterpret_cast<bool (*)(void*)>(dlsym(handle, "il2cpp_class_is_interface"));
+    IL2CPP::il2cpp_class_is_enum = reinterpret_cast<bool (*)(void*)>(dlsym(handle, "il2cpp_class_is_enum"));
 
     IL2CPP::il2cpp_type_get_name = reinterpret_cast<const char* (*)(void*)>(dlsym(handle, "il2cpp_type_get_name"));
     IL2CPP::il2cpp_type_is_pointer_type = reinterpret_cast<bool (*)(void*)>(dlsym(handle, "il2cpp_type_is_pointer_type"));

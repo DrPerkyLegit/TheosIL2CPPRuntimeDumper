@@ -45,11 +45,15 @@ namespace Dumper {
         std::string namespaze;
         std::string parent;
 
+        bool is_abstract;
+        bool is_interface;
+        bool is_enum;
+
         std::vector<UnityField> fieldArray;
         std::vector<UnityMethod> methodArray;
         //std::vector<UnityEvents> eventArray; //TODO: add this when i learn what they do
 
-        UnityClass(std::string _name, std::string _namespaze, std::string _parent, std::vector<UnityField> _fieldArray, std::vector<UnityMethod> _methodArray) : name(_name), namespaze(_namespaze), parent(_parent), fieldArray(_fieldArray), methodArray(_methodArray) {}
+        UnityClass(std::string _name, std::string _namespaze, std::string _parent, bool _is_abstract, bool _is_interface, bool _is_enum, std::vector<UnityField> _fieldArray, std::vector<UnityMethod> _methodArray) : name(_name), namespaze(_namespaze), parent(_parent), is_abstract(_is_abstract), is_interface(_is_interface), is_enum(_is_enum), fieldArray(_fieldArray), methodArray(_methodArray) {}
     };
 
     struct UnityAssembly {
@@ -60,6 +64,10 @@ namespace Dumper {
     };
     
     UnityClass DumpClass(void* klass);
+
+    UnityField DumpField(void* field);
+
+    UnityMethod DumpMethod(void* method);
 
     UnityAssembly DumpAssembly(IL2CPP::Il2CppAssembly* assembly);
 
@@ -87,8 +95,50 @@ Dumper::UnityAssembly Dumper::DumpAssembly(IL2CPP::Il2CppAssembly* assembly) {
     return UnityAssembly(assembly->aname.name, klassArray);
 }
 
-Dumper::UnityClass Dumper::DumpClass(void* klass) {
+Dumper::UnityField Dumper::DumpField(void* field) {
+    const char* fieldName = IL2CPP::il2cpp_field_get_name(field);
 
+    const void* fieldType = IL2CPP::il2cpp_field_get_type(field);
+    std::string fieldTypeName = IL2CPP::getTypeNameFull((void*)fieldType);
+
+    size_t fieldOffset = IL2CPP::il2cpp_field_get_offset(field);
+
+    return UnityField(fieldName, fieldTypeName, cleanHex((uintptr_t)fieldOffset));
+}
+
+Dumper::UnityMethod Dumper::DumpMethod(void* method) {
+    const char* methodName = IL2CPP::il2cpp_method_get_name(method);
+
+    uint32_t paramCount = IL2CPP::il2cpp_method_get_param_count(method);
+
+    std::vector<std::string> param_names;
+    std::vector<std::string> param_types;
+    for (int paramIndex = 0; paramIndex < paramCount; paramIndex++) {
+        const void* paramType = IL2CPP::il2cpp_method_get_param(method, paramIndex);
+        std::string paramTypeName = IL2CPP::getTypeNameFull((void*)paramType);
+
+        const char* paramName = IL2CPP::il2cpp_method_get_param_name(method, paramIndex);
+        param_names.push_back(paramName);
+        param_types.push_back(paramTypeName);
+    }
+
+    const void* returnType = IL2CPP::il2cpp_method_get_return_type(method);
+    std::string returnTypeName = IL2CPP::getTypeNameFull((void*)returnType);
+
+    std::string methodOffset = cleanPointer(method);
+
+    bool isInstance = IL2CPP::il2cpp_method_is_instance(method);
+
+    std::string finalReturnTypeName = returnTypeName;
+
+    if (!isInstance) {
+        finalReturnTypeName = "static " + returnTypeName;
+    }
+
+    return UnityMethod(methodName, finalReturnTypeName, param_types, param_names, methodOffset);
+}
+
+Dumper::UnityClass Dumper::DumpClass(void* klass) {
     std::vector<UnityField> fieldArray;
     std::vector<UnityMethod> methodArray;
 
@@ -102,6 +152,10 @@ Dumper::UnityClass Dumper::DumpClass(void* klass) {
         parentKlassName = IL2CPP::il2cpp_class_get_name((void*)parentKlass);
     }
 
+    bool is_abstract = IL2CPP::il2cpp_class_is_abstract(klass);
+    bool is_interface = IL2CPP::il2cpp_class_is_interface(klass);
+    bool is_enum = IL2CPP::il2cpp_class_is_enum(klass);
+
     void* methodItor = nullptr;
     bool shouldStopMethodLoop = false;
 
@@ -111,36 +165,7 @@ Dumper::UnityClass Dumper::DumpClass(void* klass) {
             shouldStopMethodLoop = true;
             continue;
         }
-
-        const char* methodName = IL2CPP::il2cpp_method_get_name((void*)method);
-
-        uint32_t paramCount = IL2CPP::il2cpp_method_get_param_count((void*)method);
-
-        std::vector<std::string> param_names;
-        std::vector<std::string> param_types;
-        for (int paramIndex = 0; paramIndex < paramCount; paramIndex++) {
-            const void* paramType = IL2CPP::il2cpp_method_get_param((void*)method, paramIndex);
-            std::string paramTypeName = IL2CPP::getTypeNameFull((void*)paramType);
-
-            const char* paramName = IL2CPP::il2cpp_method_get_param_name((void*)method, paramIndex);
-            param_names.push_back(paramName);
-            param_types.push_back(paramTypeName);
-        }
-
-        const void* returnType = IL2CPP::il2cpp_method_get_return_type((void*)method);
-        std::string returnTypeName = IL2CPP::getTypeNameFull((void*)returnType);
-
-        std::string methodOffset = cleanPointer((void*)method);
-
-        bool isInstance = IL2CPP::il2cpp_method_is_instance((void*)method);
-
-        std::string finalReturnTypeName = returnTypeName;
-
-        if (!isInstance) {
-            finalReturnTypeName = "static " + returnTypeName;
-        }
-
-        methodArray.push_back(UnityMethod(methodName, finalReturnTypeName, param_types, param_names, methodOffset));
+        methodArray.push_back(Dumper::DumpMethod((void*)method));
     }
 
     void* fieldItor = nullptr;
@@ -152,18 +177,10 @@ Dumper::UnityClass Dumper::DumpClass(void* klass) {
             shouldStopFieldLoop = true;
             continue;
         }
-
-        const char* fieldName = IL2CPP::il2cpp_field_get_name((void*)field);
-
-        const void* fieldType = IL2CPP::il2cpp_field_get_type((void*)field);
-        std::string fieldTypeName = IL2CPP::getTypeNameFull((void*)fieldType);
-
-        size_t fieldOffset = IL2CPP::il2cpp_field_get_offset((void*)field);
-
-        fieldArray.push_back(UnityField(fieldName, fieldTypeName, cleanHex((uintptr_t)fieldOffset)));
+        fieldArray.push_back(Dumper::DumpField((void*)field));
     }
 
-    return UnityClass(klassName, namespazeName, parentKlassName, fieldArray, methodArray);
+    return UnityClass(klassName, namespazeName, parentKlassName,is_abstract, is_interface, is_enum, fieldArray, methodArray);
 }
 
 uint64_t baseAddress;
@@ -246,8 +263,16 @@ std::string DumpFormat::formatAssembly(Dumper::UnityAssembly assembly) {
 std::string DumpFormat::formatClass(Dumper::UnityClass klass) {
     std::string returnString = "//Namespace: " + klass.namespaze + "\n";
 
+    std::string classType = "public class";
+    if (klass.is_abstract) {
+        classType = "public abstract class";
+    } else if (klass.is_interface) {
+        classType = "public interface";
+    } else if (klass.is_enum) {
+        classType = "public enum";
+    }
 
-    returnString += "class " + klass.name;
+    returnString += classType + " " + klass.name;
     if (klass.parent != "") {
         returnString += " : " + klass.parent + "\n";
     } else {
